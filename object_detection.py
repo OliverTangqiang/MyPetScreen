@@ -1,8 +1,8 @@
 # import the necessary packages
 import base64
 import os
-import sys
-import time
+#import sys
+#import time
 
 import cv2
 import numpy as np
@@ -10,7 +10,7 @@ import numpy as np
 # construct the argument parse and parse the arguments
 confthres = 0.3
 nmsthres = 0.1
-
+accuracy = 0.5
 
 def get_labels(labels_path):
     # load the COCO class labels our YOLO model was trained on
@@ -34,7 +34,7 @@ def get_config(config_path):
 
 def load_model(configpath, weightspath):
     # load our YOLO object detector trained on COCO dataset (80 classes)
-    print("[INFO] loading YOLO from disk...")
+    #print("[INFO] loading YOLO from disk...")
     net = cv2.dnn.readNetFromDarknet(configpath, weightspath)
     return net
 
@@ -43,8 +43,8 @@ def do_prediction(image, net, LABELS):
     (H, W) = image.shape[:2]
     # determine only the *output* layer names that we need from YOLO
     ln = net.getLayerNames()
-    # ln = [ln[i[0] - 1] for i in net.getUnconnectedOutLayers()]
-    ln = [ln[i - 1] for i in net.getUnconnectedOutLayers()]
+    ln = [ln[i[0] - 1] for i in net.getUnconnectedOutLayers()]
+    #ln = [ln[i - 1] for i in net.getUnconnectedOutLayers()]
 
     # construct a blob from the input image and then perform a forward
     # pass of the YOLO object detector, giving us our bounding boxes and
@@ -52,13 +52,13 @@ def do_prediction(image, net, LABELS):
     blob = cv2.dnn.blobFromImage(image, 1 / 255.0, (416, 416),
                                  swapRB=True, crop=False)
     net.setInput(blob)
-    start = time.time()
+    #start = time.time()
     layerOutputs = net.forward(ln)
     # print(layerOutputs)
-    end = time.time()
+    #end = time.time()
 
     # show timing information on YOLO
-    print("[INFO] YOLO took {:.6f} seconds".format(end - start))
+    #print("[INFO] YOLO took {:.6f} seconds".format(end - start))
 
     # initialize our lists of detected bounding boxes, confidences, and
     # class IDs, respectively
@@ -110,8 +110,9 @@ def do_prediction(image, net, LABELS):
     if len(idxs) > 0:
         # loop over the indexes we are keeping
         for i in idxs.flatten():
-            if confidences[i] > 0.5:
+            if confidences[i] > accuracy:
                 object_array.append(LABELS[classIDs[i]])
+        return object_array
             # object_output = {
             #     "label": LABELS[classIDs[i]],
             #     "accuracy": confidences[i],
@@ -123,13 +124,6 @@ def do_prediction(image, net, LABELS):
             #     }
             # }
 
-            # print("detected item:{}, accuracy:{}, X:{}, Y:{}, width:{}, height:{}".format(LABELS[classIDs[i]],
-            #                                                                               confidences[i],
-            #                                                                               boxes[i][0],
-            #                                                                               boxes[i][1],
-            #                                                                               boxes[i][2],
-            #                                                                               boxes[i][3]))
-        return object_array
 
 
 # yolo_path = str(sys.argv[1])
@@ -140,45 +134,29 @@ labelsPath = "coco.names"
 cfgpath = "yolov3-tiny.cfg"
 wpath = "yolov3-tiny.weights"
 
-Lables = get_labels(labelsPath)
-CFG = get_config(cfgpath)
-Weights = get_weights(wpath)
+def readb64(base64_string):
+    nparr = np.fromstring(base64.b64decode(base64_string), np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    return img
 
-
-# TODO, you should  make this console script into webservice using Flask
-def main():
+def image_detection(img):
+    Lables = get_labels(labelsPath)
+    CFG = get_config(cfgpath)
+    Weights = get_weights(wpath)
     try:
-        imagefile = str(sys.argv[2])
-        img = cv2.imread(imagefile)
+        img = readb64(img)
+        nets = load_model(CFG, Weights)
         npimg = np.array(img)
         image = npimg.copy()
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        # load the neural net.  Should be local to this method as its multi-threaded endpoint
-        nets = load_model(CFG, Weights)
-        do_prediction(image, nets, Lables)
-
+        result = do_prediction(image, nets, Lables)
+        return result
     except Exception as e:
+        return "Exception {}".format(e)
+def main():
+    pass
 
-        print("Exception  {}".format(e))
-
-
-# base64 string change to buffer
-
-def image_detection(base64_format_string):
-    print("Starting image detection.")
-    numpy_array = np.fromstring(base64.b64decode(base64_format_string), np.uint8)  # base64 to int
-    img = cv2.imdecode(numpy_array, cv2.IMREAD_COLOR)
-    npimg = np.array(img)
-    image = npimg.copy()
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    # load the neural net.  Should be local to this method as its multi-threaded endpoint
-    nets = load_model(CFG, Weights)
-    return do_prediction(image, nets, Lables)
-
-
-if __name__ == '__main__':
-    # argument
-    if len(sys.argv) != 3:
-        raise ValueError("Argument list is wrong. Please use the following format:  {} {} {}".
-                         format("python iWebLens_server.py", "<yolo_config_folder>", "<Image file path>"))
+if __name__ == "__main__":
     main()
+else:
+    pass
