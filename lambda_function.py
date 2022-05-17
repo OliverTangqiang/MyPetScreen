@@ -27,7 +27,7 @@ def lambda_handler(event, context):
         image_data = base64.b64encode(image['Body'].read()).decode('utf-8')
         
         tags = object_detection.image_detection(image_data)
-        s3_url = "s3://{0}/{1}".format(bucket, key)
+        s3_url = "s3://{0}/{1}".format(bucket,key)
         table = dynamodb.Table(TABLE_NAME)
         response = table.put_item(
             Item={
